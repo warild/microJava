@@ -24,6 +24,17 @@ import static no.onlevel.micro16F690.units.pins.Pin_7.out_digital_C3;
 import static no.onlevel.micro16F690.units.pins.Pin_8.out_digital_C6;
 import static no.onlevel.micro16F690.units.pins.Pin_9.out_digital_C7;
 
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import org.junit.Test;
+
 import no.onlevel.micro16F690.Micro16f690;
 import no.onlevel.micro16F690.code.logic.BlockIf;
 import no.onlevel.micro16F690.code.logic.BlockIfElse;
@@ -36,6 +47,7 @@ import no.onlevel.micro16F690.units.timer2.PreCounter;
 
 public class PlaneringMicro extends Micro16f690 {
 
+	// variables
 	private Variable v0 = memory0.variable("V0");
 	private Variable v1 = memory0.variable("V1");
 	private Variable v2 = memory0.variable("V2");
@@ -57,85 +69,66 @@ public class PlaneringMicro extends Micro16f690 {
 	private Variable16 multSum16 = memory0.variable16("multSum16");
 	private Variable posisjon = memory0.variable("posisjon");
 
-	// variables for subroutines
+	// temporary variables for subroutines
 	private Variable tempA = memory0.variable("tempA");
 	private Variable tempB = memory0.variable("tempB");
 	private Variable tempRes = memory0.variable("tempRes");
 	private Variable tempCounter = memory0.variable("tempCounter");
 	private Variable16 tempA16 = memory0.variable16("tempA16");
 	private Variable16 tempRes16 = memory0.variable16("tempRes16");
-
-	
 	private Variable16 result16 = memory0.variable16("result16");
 	private Variable result8 = memory0.variable("result8");
 	private Variable16 a16 = memory0.variable16("a16");
 	private Variable a8 = memory0.variable("a8");
 	private Variable16 b16 = memory0.variable16("b16");
 	private Variable b8 = memory0.variable("b8");
-	
-	// mellomlagring av W og Status ved interrupt
+
+	// temporary storage for Status- and Work registers when interrupt occurs.
 	private Variable tempWorkIR = memory.variable("tempWorkIR");
 	private Variable tempStatusIR = memory.variable("tempStatusIR");
 
 	// test
 	private Variable16 tempB16 = memory0.variable16("tempB16");
+
 	// LABELS
-	private final String MAIN_START = "MAIN";
+	private final String MAIN = "MAIN";
+
+	public static void main(String... args) throws IOException {
+		String assemblercodeFilename  = "D:/Prosjekter/Jotta prosjekter/Planering/mikroNoGit/Micro-laser.X/KodeFraJava.asm";
+		
+		Files.write(Paths.get(assemblercodeFilename), new PlaneringMicro().printProgram(), Charset.defaultCharset());
+		System.out.print("Assemblycode printed to " + assemblercodeFilename);
+	}
 
 	public void generateInterruptHandlingCode() {
 		interruptRoutine.startWithPushToStack(tempWorkIR, tempStatusIR);
 		timer2.handleIfIr();
-			PORTA.set(v0);
-			timer2.setCounter(0);
-			multSum16.set(2, 1);
-			v2.add(VEmax, tempB);
-			timer2.clearIrFlag();
+		PORTA.set(v0);
+		timer2.setCounter(0);
+		multSum16.set(2, 1);
+		v2.add(VEmax, tempB);
+		timer2.clearIrFlag();
 		timer2.handleIrEnd();
 		interruptRoutine.endWithPopFromStack();
 	}
 
-	public void generateSetupUnitsCode(){
-		clock.setupWith()
-			.frequency(_8MHz)
-		.buildCode();
-		 
-		pins.setupWith()
-			.pin17(in_analog_Ch_2) 
-			.pin_3(in_analog_Ch_3)
-			.pin13(in_analog_Ch10)
-			.pin12(in_analog_Ch11)
-			.pin16(out_digital_C0)
-			.pin15(out_digital_C1)
-			.pin14(out_digital_C2)
-			.pin_7(out_digital_C3)
-			.pin_6(out_digital_C4)		
-			.pin_5(out_digital_C5)
-			.pin_8(out_digital_C6)
-			.pin_9(out_digital_C7)
-			// unused pins (set output low):		
-			.pin_2(out_digital_A5) 
-			.pin11(out_digital_B6)
-			.pin10(out_digital_B7)
-			// programming
-			.pin_4(in_ICSP_Programming_voltage) 
-			.pin18(in_ICSP_clock) 
-			.pin19(in_ICSP_data)
-		.buildCode();
-		
-		ad.setupWith()  // input on pin13, 2uS convert time
-			.channel(Ch10_pin13)
-			.vref(Vref.Vpin_18_A1)
-			.convertTime(_2uS_8Mhz)
-			.resultFormat(ResultFormat.H8_L2)
-			.power(On)
-		.buildCode();
-				
+	public void generateSetupUnitsCode() {
+		clock.setupWith().frequency(_8MHz).buildCode();
+
+		pins.setupWith().pin17(in_analog_Ch_2).pin_3(in_analog_Ch_3).pin13(in_analog_Ch10).pin12(in_analog_Ch11)
+				.pin16(out_digital_C0).pin15(out_digital_C1).pin14(out_digital_C2).pin_7(out_digital_C3)
+				.pin_6(out_digital_C4).pin_5(out_digital_C5).pin_8(out_digital_C6).pin_9(out_digital_C7)
+				// unused pins (set output low):
+				.pin_2(out_digital_A5).pin11(out_digital_B6).pin10(out_digital_B7)
+				// programming
+				.pin_4(in_ICSP_Programming_voltage).pin18(in_ICSP_clock).pin19(in_ICSP_data).buildCode();
+
+		ad.setupWith() // input on pin13, 2uS convert time
+				.channel(Ch10_pin13).vref(Vref.Vpin_18_A1).convertTime(_2uS_8Mhz).resultFormat(ResultFormat.H8_L2)
+				.power(On).buildCode();
+
 		timer2.setupWith() // 10mS = (16*250*5)(*4)/8MHz = 80 000cp/8 000 000Hz
-			.preCounter(PreCounter.x16)
-			.counter(250)
-			.postCounter(PostCounter.x5)
-			.power(On)
-		.buildCode();
+				.preCounter(PreCounter.x16).counter(250).postCounter(PostCounter.x5).power(On).buildCode();
 
 //		eusart.with().asyTx.asyRx
 		// comparator
@@ -143,59 +136,41 @@ public class PlaneringMicro extends Micro16f690 {
 		// SSP
 		// IIC
 		// EUSART
-		
-		interruptRoutine.setupWith()
-		.timer2(enable)
-		.buildCode();	
-		
+
+		interruptRoutine.setupWith().timer2(enable).buildCode();
+
 //		INTCON
 //		.GIE 
 //		.PEIE -> portA?
 //		.RABIE -> enable ir på PORTA og PORTB
 //		.RABIF -> ir på pin på PORTA eller PORTB
 //		-> les port og clear flag
-		
+
 	}
 
 	protected void generateSubroutinesCode() {
 		// Variables used by subroutines.
-		subroutine.multiply_A8_B4_R16().with()
-			.A8_in(tempA)
-			.B4_in(tempB)
-			.internalBitCounter_in(tempCounter)
-			.Result16_in(tempRes16)		
-		.buildCode(); 
-		
-		subroutine.div_A16_B16_R16().with()
-			.A16_in(tempA16)
-			.B16_in(tempB16)
-			.bitCounter_in(tempCounter)
-			.R16_in(tempRes16)
-		.buildCode();
-		
-		subroutine.div_A16_B16_8().with()
-			.A16_in(tempA16)
-			.B16_in(tempB16)
-			.bitCounter_in(tempCounter)
-			.Result8_in(result8)
-		.buildCode();
-		
-		subroutine.div_a16_b8_result8().with()
-			.a16_in(tempA16)
-			.b8_in(tempB)
-			.bitCounter_in(tempCounter)
-			.result8_in(result8)
-		.buildCode();
+		subroutine.multiply_A8_B4_R16().with().A8_in(tempA).B4_in(tempB).internalBitCounter_in(tempCounter)
+				.Result16_in(tempRes16).buildCode();
+
+		subroutine.div_A16_B16_R16().with().A16_in(tempA16).B16_in(tempB16).bitCounter_in(tempCounter).R16_in(tempRes16)
+				.buildCode();
+
+		subroutine.div_A16_B16_8().with().A16_in(tempA16).B16_in(tempB16).bitCounter_in(tempCounter).Result8_in(result8)
+				.buildCode();
+
+		subroutine.div_a16_b8_result8().with().a16_in(tempA16).b8_in(tempB).bitCounter_in(tempCounter)
+				.result8_in(result8).buildCode();
 	}
 
 	protected void generateMainProgram() {
-		// subroutines work always. How many extra cycles when calling sub? 8 cps in addition ? . (1uS)  
+		// subroutines work always. How many extra cycles when calling sub? 8 cps in
+		// addition ? . (1uS)
 		result16.call.multiply_a8_b4(a8, b8);
 		result16.call.divide_a16_b16(a16, b16);
 		result8.call.divide_a16_b16(a16, b16);
 		result8.call.divide_a16_b8(a16, b8);
-		
-		
+
 		// wait for IR or wait for A5 going low (or high)
 		// 1: Read AD and change timer value
 		// 2: Handle timer interrupts (Length of pulse - min pulse length - integrate
@@ -255,7 +230,7 @@ public class PlaneringMicro extends Micro16f690 {
 		VEmax.set(v1);
 		VmaxNr.set(0);
 		antILavtSnitt.set(6);
-		// 2		
+		// 2
 		BlockIf v1Bigger = blockIf("V1_IS_BIGGER");
 		BlockIf v2Bigger = blockIf("V2_IS_BIGGER");
 		BlockIf v3Bigger = blockIf("V3_IS_BIGGER");
@@ -320,7 +295,7 @@ public class PlaneringMicro extends Micro16f690 {
 		sumLavtSnitt16.sub(VEmax);
 
 		comment("Beregn lavt snitt ved å dele summen av lavt snitt på de resterende - 2 eller 1 når 4 avlesninger");
-		lavtSnitt.call.divide_a16_b8( sumLavtSnitt16, antILavtSnitt);
+		lavtSnitt.call.divide_a16_b8(sumLavtSnitt16, antILavtSnitt);
 
 		comment("Lag ekte max-verdier - uten bakgrunnsstøy");
 		// if lavtSnitt > VFmax -> VFmax = 0
@@ -356,7 +331,7 @@ public class PlaneringMicro extends Micro16f690 {
 		comment("Skriv posisjonen til PORTC");
 		PORTC.set(posisjon);
 
-		LABEL("	goto " + MAIN_START);
+		LABEL("	goto " + MAIN);
 	}
 
 }

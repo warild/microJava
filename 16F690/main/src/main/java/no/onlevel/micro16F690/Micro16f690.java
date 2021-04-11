@@ -103,7 +103,6 @@ abstract public class Micro16f690 {
 		code.add("; 	Start vector ");
 		code.add(";=============================================");
 		code.add(TAB + "; At (re)start instructions are read from location 0");
-		code.add(TAB + "; Only 4 instructions available. Interruptvector follows at location 4");
 		code.add(TAB + "org 0");
 		code.add(TAB + "call SETUP_UNITS");
 		code.add(TAB + "goto MAIN");
